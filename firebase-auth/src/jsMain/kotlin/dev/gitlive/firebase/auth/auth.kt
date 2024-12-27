@@ -51,19 +51,21 @@ public actual class FirebaseAuth internal constructor(internal val js: Auth) {
     public actual val currentUser: FirebaseUser?
         get() = rethrow { js.currentUser?.let { FirebaseUser(it) } }
 
-    public actual val authStateChanged: Flow<FirebaseUser?> get() = callbackFlow {
-        val unsubscribe = js.onAuthStateChanged {
-            trySend(it?.let { FirebaseUser(it) })
+    public actual val authStateChanged: Flow<FirebaseUser?>
+        get() = callbackFlow {
+            val unsubscribe = js.onAuthStateChanged {
+                trySend(it?.let { FirebaseUser(it) })
+            }
+            awaitClose { unsubscribe() }
         }
-        awaitClose { unsubscribe() }
-    }
 
-    public actual val idTokenChanged: Flow<FirebaseUser?> get() = callbackFlow {
-        val unsubscribe = js.onIdTokenChanged {
-            trySend(it?.let { FirebaseUser(it) })
+    public actual val idTokenChanged: Flow<FirebaseUser?>
+        get() = callbackFlow {
+            val unsubscribe = js.onIdTokenChanged {
+                trySend(it?.let { FirebaseUser(it) })
+            }
+            awaitClose { unsubscribe() }
         }
-        awaitClose { unsubscribe() }
-    }
 
     public actual var languageCode: String
         get() = js.languageCode ?: ""
@@ -71,23 +73,43 @@ public actual class FirebaseAuth internal constructor(internal val js: Auth) {
             js.languageCode = value
         }
 
-    public actual suspend fun applyActionCode(code: String): Unit = rethrow { applyActionCode(js, code).await() }
-    public actual suspend fun confirmPasswordReset(code: String, newPassword: String): Unit = rethrow { confirmPasswordReset(js, code, newPassword).await() }
+    public actual var settings: AuthSettings? =
+        AuthSettings(js.settings?.appVerificationDisabledForTesting ?: false)
 
-    public actual suspend fun createUserWithEmailAndPassword(email: String, password: String): AuthResult =
+    public actual suspend fun applyActionCode(code: String): Unit =
+        rethrow { applyActionCode(js, code).await() }
+
+    public actual suspend fun confirmPasswordReset(code: String, newPassword: String): Unit =
+        rethrow { confirmPasswordReset(js, code, newPassword).await() }
+
+    public actual suspend fun createUserWithEmailAndPassword(
+        email: String,
+        password: String
+    ): AuthResult =
         rethrow { AuthResult(createUserWithEmailAndPassword(js, email, password).await()) }
 
-    public actual suspend fun fetchSignInMethodsForEmail(email: String): List<String> = rethrow { fetchSignInMethodsForEmail(js, email).await().asList() }
+    public actual suspend fun fetchSignInMethodsForEmail(email: String): List<String> =
+        rethrow { fetchSignInMethodsForEmail(js, email).await().asList() }
 
-    public actual suspend fun sendPasswordResetEmail(email: String, actionCodeSettings: ActionCodeSettings?): Unit =
+    public actual suspend fun sendPasswordResetEmail(
+        email: String,
+        actionCodeSettings: ActionCodeSettings?
+    ): Unit =
         rethrow { sendPasswordResetEmail(js, email, actionCodeSettings?.toJson()).await() }
 
-    public actual suspend fun sendSignInLinkToEmail(email: String, actionCodeSettings: ActionCodeSettings): Unit =
+    public actual suspend fun sendSignInLinkToEmail(
+        email: String,
+        actionCodeSettings: ActionCodeSettings
+    ): Unit =
         rethrow { sendSignInLinkToEmail(js, email, actionCodeSettings.toJson()).await() }
 
-    public actual fun isSignInWithEmailLink(link: String): Boolean = rethrow { isSignInWithEmailLink(js, link) }
+    public actual fun isSignInWithEmailLink(link: String): Boolean =
+        rethrow { isSignInWithEmailLink(js, link) }
 
-    public actual suspend fun signInWithEmailAndPassword(email: String, password: String): AuthResult =
+    public actual suspend fun signInWithEmailAndPassword(
+        email: String,
+        password: String
+    ): AuthResult =
         rethrow { AuthResult(signInWithEmailAndPassword(js, email, password).await()) }
 
     public actual suspend fun signInWithCustomToken(token: String): AuthResult =
@@ -117,20 +139,37 @@ public actual class FirebaseAuth internal constructor(internal val js: Auth) {
             "EMAIL_SIGNIN" -> ActionCodeResult.SignInWithEmailLink
             "VERIFY_EMAIL" -> ActionCodeResult.VerifyEmail(result.data.email!!)
             "PASSWORD_RESET" -> ActionCodeResult.PasswordReset(result.data.email!!)
-            "RECOVER_EMAIL" -> ActionCodeResult.RecoverEmail(result.data.email!!, result.data.previousEmail!!)
+            "RECOVER_EMAIL" -> ActionCodeResult.RecoverEmail(
+                result.data.email!!,
+                result.data.previousEmail!!
+            )
+
             "VERIFY_AND_CHANGE_EMAIL" -> ActionCodeResult.VerifyBeforeChangeEmail(
                 result.data.email!!,
                 result.data.previousEmail!!,
             )
+
             "REVERT_SECOND_FACTOR_ADDITION" -> ActionCodeResult.RevertSecondFactorAddition(
                 result.data.email!!,
                 result.data.multiFactorInfo?.let { MultiFactorInfo(it) },
             )
+
             else -> throw UnsupportedOperationException(result.operation)
         } as T
     }
 
-    public actual fun useEmulator(host: String, port: Int): Unit = rethrow { connectAuthEmulator(js, "http://$host:$port") }
+    public actual fun useEmulator(host: String, port: Int): Unit =
+        rethrow { connectAuthEmulator(js, "http://$host:$port") }
+}
+
+public actual class AuthSettings actual constructor(initialValue: Boolean) {
+    public actual var appVerificationDisabledForTesting: Boolean = initialValue
+
+    public actual fun setAppVerificationTesting(value: Boolean) {
+        this.appVerificationDisabledForTesting = value
+    }
+
+    public actual fun appVerificationTesting(): Boolean = appVerificationDisabledForTesting
 }
 
 public val AuthResult.js: JsAuthResult get() = js
@@ -168,14 +207,14 @@ public actual class AdditionalUserInfo(
 public val AuthTokenResult.js: IdTokenResult get() = js
 
 public actual class AuthTokenResult(internal val js: IdTokenResult) {
-//    actual val authTimestamp: Long
+    //    actual val authTimestamp: Long
 //        get() = js.authTime
     public actual val claims: Map<String, Any>
         get() = (js("Object").keys(js.claims) as Array<String>).mapNotNull { key ->
             js.claims[key]?.let { key to it }
         }.toMap()
 
-//    actual val expirationTimestamp: Long
+    //    actual val expirationTimestamp: Long
 //        get() = android.expirationTime
 //    actual val issuedAtTimestamp: Long
 //        get() = js.issuedAtTime
@@ -187,24 +226,50 @@ public actual class AuthTokenResult(internal val js: IdTokenResult) {
 
 internal fun ActionCodeSettings.toJson() = json(
     "url" to url,
-    "android" to (androidPackageName?.run { json("installApp" to installIfNotAvailable, "minimumVersion" to minimumVersion, "packageName" to packageName) } ?: undefined),
+    "android" to (androidPackageName?.run {
+        json(
+            "installApp" to installIfNotAvailable,
+            "minimumVersion" to minimumVersion,
+            "packageName" to packageName
+        )
+    } ?: undefined),
     "dynamicLinkDomain" to (dynamicLinkDomain ?: undefined),
     "handleCodeInApp" to canHandleCodeInApp,
     "ios" to (iOSBundleId?.run { json("bundleId" to iOSBundleId) } ?: undefined),
 )
 
-public actual open class FirebaseAuthException(code: String?, cause: Throwable) : FirebaseException(code, cause)
-public actual open class FirebaseAuthActionCodeException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthEmailException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthInvalidCredentialsException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthWeakPasswordException(code: String?, cause: Throwable) : FirebaseAuthInvalidCredentialsException(code, cause)
-public actual open class FirebaseAuthInvalidUserException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthMultiFactorException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthRecentLoginRequiredException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthUserCollisionException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
-public actual open class FirebaseAuthWebException(code: String?, cause: Throwable) : FirebaseAuthException(code, cause)
+public actual open class FirebaseAuthException(code: String?, cause: Throwable) :
+    FirebaseException(code, cause)
 
-internal inline fun <T, R> T.rethrow(function: T.() -> R): R = dev.gitlive.firebase.auth.rethrow { function() }
+public actual open class FirebaseAuthActionCodeException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthEmailException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthInvalidCredentialsException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthWeakPasswordException(code: String?, cause: Throwable) :
+    FirebaseAuthInvalidCredentialsException(code, cause)
+
+public actual open class FirebaseAuthInvalidUserException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthMultiFactorException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthRecentLoginRequiredException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthUserCollisionException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+public actual open class FirebaseAuthWebException(code: String?, cause: Throwable) :
+    FirebaseAuthException(code, cause)
+
+internal inline fun <T, R> T.rethrow(function: T.() -> R): R =
+    dev.gitlive.firebase.auth.rethrow { function() }
 
 private inline fun <R> rethrow(function: () -> R): R {
     try {
@@ -216,27 +281,66 @@ private inline fun <R> rethrow(function: () -> R): R {
     }
 }
 
-private fun errorToException(cause: dynamic) = when (val code = cause.code?.toString()?.lowercase()) {
-    "auth/invalid-user-token" -> FirebaseAuthInvalidUserException(code, cause.unsafeCast<Throwable>())
-    "auth/requires-recent-login" -> FirebaseAuthRecentLoginRequiredException(code, cause.unsafeCast<Throwable>())
-    "auth/user-disabled" -> FirebaseAuthInvalidUserException(code, cause.unsafeCast<Throwable>())
-    "auth/user-token-expired" -> FirebaseAuthInvalidUserException(code, cause.unsafeCast<Throwable>())
-    "auth/web-storage-unsupported" -> FirebaseAuthWebException(code, cause.unsafeCast<Throwable>())
-    "auth/network-request-failed" -> FirebaseNetworkException(code, cause.unsafeCast<Throwable>())
-    "auth/timeout" -> FirebaseNetworkException(code, cause.unsafeCast<Throwable>())
-    "auth/weak-password" -> FirebaseAuthWeakPasswordException(code, cause.unsafeCast<Throwable>())
-    "auth/invalid-credential",
-    "auth/invalid-verification-code",
-    "auth/missing-verification-code",
-    "auth/invalid-verification-id",
-    "auth/missing-verification-id",
-    -> FirebaseAuthInvalidCredentialsException(code, cause.unsafeCast<Throwable>())
-    "auth/maximum-second-factor-count-exceeded",
-    "auth/second-factor-already-in-use",
-    -> FirebaseAuthMultiFactorException(code, cause.unsafeCast<Throwable>())
-    "auth/credential-already-in-use" -> FirebaseAuthUserCollisionException(code, cause.unsafeCast<Throwable>())
-    "auth/email-already-in-use" -> FirebaseAuthUserCollisionException(code, cause.unsafeCast<Throwable>())
-    "auth/invalid-email" -> FirebaseAuthEmailException(code, cause.unsafeCast<Throwable>())
+private fun errorToException(cause: dynamic) =
+    when (val code = cause.code?.toString()?.lowercase()) {
+        "auth/invalid-user-token" -> FirebaseAuthInvalidUserException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/requires-recent-login" -> FirebaseAuthRecentLoginRequiredException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/user-disabled" -> FirebaseAuthInvalidUserException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/user-token-expired" -> FirebaseAuthInvalidUserException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/web-storage-unsupported" -> FirebaseAuthWebException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/network-request-failed" -> FirebaseNetworkException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/timeout" -> FirebaseNetworkException(code, cause.unsafeCast<Throwable>())
+        "auth/weak-password" -> FirebaseAuthWeakPasswordException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/invalid-credential",
+        "auth/invalid-verification-code",
+        "auth/missing-verification-code",
+        "auth/invalid-verification-id",
+        "auth/missing-verification-id",
+            -> FirebaseAuthInvalidCredentialsException(code, cause.unsafeCast<Throwable>())
+
+        "auth/maximum-second-factor-count-exceeded",
+        "auth/second-factor-already-in-use",
+            -> FirebaseAuthMultiFactorException(code, cause.unsafeCast<Throwable>())
+
+        "auth/credential-already-in-use" -> FirebaseAuthUserCollisionException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/email-already-in-use" -> FirebaseAuthUserCollisionException(
+            code,
+            cause.unsafeCast<Throwable>()
+        )
+
+        "auth/invalid-email" -> FirebaseAuthEmailException(code, cause.unsafeCast<Throwable>())
 //                "auth/app-deleted" ->
 //                "auth/app-not-authorized" ->
 //                "auth/argument-error" ->
@@ -244,8 +348,8 @@ private fun errorToException(cause: dynamic) = when (val code = cause.code?.toSt
 //                "auth/operation-not-allowed" ->
 //                "auth/too-many-arguments" ->
 //                "auth/unauthorized-domain" ->
-    else -> {
-        println("Unknown error code in ${JSON.stringify(cause)}")
-        FirebaseAuthException(code, cause.unsafeCast<Throwable>())
+        else -> {
+            println("Unknown error code in ${JSON.stringify(cause)}")
+            FirebaseAuthException(code, cause.unsafeCast<Throwable>())
+        }
     }
-}

@@ -21,7 +21,7 @@ import kotlinx.coroutines.tasks.await
 public actual val Firebase.auth: FirebaseAuth
     get() = FirebaseAuth(com.google.firebase.auth.FirebaseAuth.getInstance())
 
-public actual fun Firebase.auth(app: FirebaseApp) =
+public actual fun Firebase.auth(app: FirebaseApp): FirebaseAuth =
     FirebaseAuth(com.google.firebase.auth.FirebaseAuth.getInstance(app.publicAndroid))
 
 public actual class FirebaseAuth internal constructor(internal val android: com.google.firebase.auth.FirebaseAuth) {
@@ -53,6 +53,8 @@ public actual class FirebaseAuth internal constructor(internal val android: com.
         set(value) {
             android.setLanguageCode(value)
         }
+
+    public actual var settings: AuthSettings? = null
 
     public actual suspend fun applyActionCode(code: String) {
         android.applyActionCode(code).await()
@@ -123,6 +125,16 @@ public actual class FirebaseAuth internal constructor(internal val android: com.
     public actual fun useEmulator(host: String, port: Int) {
         android.useEmulator(host, port)
     }
+}
+
+public actual class AuthSettings actual constructor(initialValue: Boolean) {
+    public actual var appVerificationDisabledForTesting: Boolean = initialValue
+
+    public actual fun setAppVerificationTesting(value: Boolean) {
+        this.appVerificationDisabledForTesting = value
+    }
+
+    public actual fun appVerificationTesting(): Boolean = appVerificationDisabledForTesting
 }
 
 public val AuthResult.android: com.google.firebase.auth.AuthResult get() = android

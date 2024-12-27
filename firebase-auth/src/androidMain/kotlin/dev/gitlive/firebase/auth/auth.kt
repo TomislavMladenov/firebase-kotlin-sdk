@@ -48,6 +48,8 @@ public actual class FirebaseAuth internal constructor(internal val android: com.
             android.setLanguageCode(value)
         }
 
+    public actual var settings: AuthSettings? = AuthSettings(false)
+
     public actual suspend fun applyActionCode(code: String) {
         android.applyActionCode(code).await()
     }
@@ -114,6 +116,16 @@ public actual class FirebaseAuth internal constructor(internal val android: com.
     }
 
     public actual fun useEmulator(host: String, port: Int): Unit = android.useEmulator(host, port)
+}
+
+public actual class AuthSettings actual constructor(initialValue: Boolean) {
+    public actual var appVerificationDisabledForTesting: Boolean = initialValue
+
+    public actual fun setAppVerificationTesting(value: Boolean) {
+        this.appVerificationDisabledForTesting = value
+    }
+
+    public actual fun appVerificationTesting(): Boolean = appVerificationDisabledForTesting
 }
 
 public val AuthResult.android: com.google.firebase.auth.AuthResult get() = android

@@ -50,6 +50,8 @@ public actual class FirebaseAuth internal constructor(internal val ios: FIRAuth)
             ios.setLanguageCode(value)
         }
 
+    public actual var settings: AuthSettings? = null
+
     public actual suspend fun applyActionCode(code: String): Unit = ios.await { applyActionCode(code, it) }
     public actual suspend fun confirmPasswordReset(code: String, newPassword: String): Unit = ios.await { confirmPasswordResetWithCode(code, newPassword, it) }
 
@@ -104,6 +106,16 @@ public actual class FirebaseAuth internal constructor(internal val ios: FIRAuth)
     }
 
     public actual fun useEmulator(host: String, port: Int): Unit = ios.useEmulatorWithHost(host, port.toLong())
+}
+
+public actual class AuthSettings actual constructor(initialValue: Boolean) {
+    public actual var appVerificationDisabledForTesting: Boolean = initialValue
+
+    public actual fun setAppVerificationTesting(value: Boolean) {
+        this.appVerificationDisabledForTesting = value
+    }
+
+    public actual fun appVerificationTesting(): Boolean = appVerificationDisabledForTesting
 }
 
 public val AuthResult.ios: FIRAuthDataResult get() = ios

@@ -1,6 +1,6 @@
 {
   "name": "@gitlive/firebase-analytics",
-  "version": "2.1.0",
+  "version": "2.1.",
   "description": "Wrapper around firebase for usage in Kotlin Multiplatform projects",
   "main": "firebase-analytics.js",
   "scripts": {

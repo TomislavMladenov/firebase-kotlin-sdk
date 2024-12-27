@@ -110,6 +110,7 @@ public external fun verifyPasswordResetCode(auth: Auth, code: String): Promise<S
 public external interface Auth {
     public val currentUser: User?
     public var languageCode: String?
+    public var settings: AuthSettings?
 
     public fun onAuthStateChanged(nextOrObserver: (User?) -> Unit): Unsubscribe
     public fun onIdTokenChanged(nextOrObserver: (User?) -> Unit): Unsubscribe
@@ -164,6 +165,35 @@ public external interface ActionCodeData {
     public val email: String?
     public val multiFactorInfo: MultiFactorInfo?
     public val previousEmail: String?
+}
+
+public external interface AuthSettings {
+    public var appVerificationDisabledForTesting: Boolean
+}
+
+// Define the RecaptchaVerifier class
+public external class RecaptchaVerifier(
+    auth: Auth,
+    containerOrId: dynamic,
+    parameters: dynamic = definedExternally
+) : ApplicationVerifier {
+    override val type: String
+    // Method to render the reCAPTCHA widget
+    public fun render(): Promise<String>
+    // Method to verify the reCAPTCHA response
+    public override fun verify(): Promise<String>
+}
+
+// Define the signInWithPhoneNumber function
+public external fun signInWithPhoneNumber(
+    auth: Auth,
+    phoneNumber: String,
+    appVerifier: RecaptchaVerifier
+): Promise<ConfirmationResult>
+
+// Define the ConfirmationResult class
+public external class ConfirmationResult {
+    public fun confirm(verificationCode: String): Promise<UserCredential>
 }
 
 public external interface AuthResult {

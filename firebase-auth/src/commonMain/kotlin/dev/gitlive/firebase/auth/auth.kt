@@ -18,6 +18,7 @@ public expect class FirebaseAuth {
     public val authStateChanged: Flow<FirebaseUser?>
     public val idTokenChanged: Flow<FirebaseUser?>
     public var languageCode: String
+    public var settings: AuthSettings?
     public suspend fun applyActionCode(code: String)
     public suspend fun <T : ActionCodeResult> checkActionCode(code: String): T
     public suspend fun confirmPasswordReset(code: String, newPassword: String)
@@ -25,7 +26,11 @@ public expect class FirebaseAuth {
 
     @Deprecated("Migrating off of this method is recommended as a security best-practice. Learn more in the Identity Platform documentation for [Email Enumeration Protection](https://cloud.google.com/identity-platform/docs/admin/email-enumeration-protection).")
     public suspend fun fetchSignInMethodsForEmail(email: String): List<String>
-    public suspend fun sendPasswordResetEmail(email: String, actionCodeSettings: ActionCodeSettings? = null)
+    public suspend fun sendPasswordResetEmail(
+        email: String,
+        actionCodeSettings: ActionCodeSettings? = null,
+    )
+
     public suspend fun sendSignInLinkToEmail(email: String, actionCodeSettings: ActionCodeSettings)
     public fun isSignInWithEmailLink(link: String): Boolean
     public suspend fun signInWithEmailAndPassword(email: String, password: String): AuthResult
@@ -37,6 +42,12 @@ public expect class FirebaseAuth {
     public suspend fun updateCurrentUser(user: FirebaseUser)
     public suspend fun verifyPasswordResetCode(code: String): String
     public fun useEmulator(host: String, port: Int)
+}
+
+public expect class AuthSettings(initialValue: Boolean) {
+    public var appVerificationDisabledForTesting: Boolean
+    public fun setAppVerificationTesting(value: Boolean)
+    public fun appVerificationTesting(): Boolean
 }
 
 public expect class AuthResult {
@@ -53,10 +64,10 @@ public expect class AdditionalUserInfo {
 }
 
 public expect class AuthTokenResult {
-//    val authTimestamp: Long
+    //    val authTimestamp: Long
     public val claims: Map<String, Any>
 
-//    val expirationTimestamp: Long
+    //    val expirationTimestamp: Long
 //    val issuedAtTimestamp: Long
     public val signInProvider: String?
     public val token: String?
@@ -66,9 +77,20 @@ public sealed class ActionCodeResult {
     public data object SignInWithEmailLink : ActionCodeResult()
     public class PasswordReset internal constructor(public val email: String) : ActionCodeResult()
     public class VerifyEmail internal constructor(public val email: String) : ActionCodeResult()
-    public class RecoverEmail internal constructor(public val email: String, public val previousEmail: String) : ActionCodeResult()
-    public class VerifyBeforeChangeEmail internal constructor(public val email: String, public val previousEmail: String) : ActionCodeResult()
-    public class RevertSecondFactorAddition internal constructor(public val email: String, public val multiFactorInfo: MultiFactorInfo?) : ActionCodeResult()
+    public class RecoverEmail internal constructor(
+        public val email: String,
+        public val previousEmail: String,
+    ) : ActionCodeResult()
+
+    public class VerifyBeforeChangeEmail internal constructor(
+        public val email: String,
+        public val previousEmail: String,
+    ) : ActionCodeResult()
+
+    public class RevertSecondFactorAddition internal constructor(
+        public val email: String,
+        public val multiFactorInfo: MultiFactorInfo?,
+    ) : ActionCodeResult()
 }
 
 public data class ActionCodeSettings(
